@@ -77,7 +77,6 @@ else:
     y_int = m_R * x_int + b_R
 
 # --- PLOTTING ---
-# We use a 4.5 x 4.5 inch square. This fits well on most laptop screens.
 fig, ax = plt.subplots(figsize=(4.5, 4.5)) 
 x_eq_line = np.linspace(0, 1, 100)
 y_eq_line = (alpha * x_eq_line) / (1 + (alpha - 1) * x_eq_line)
@@ -113,7 +112,6 @@ ax.set_title(f"McCabe-Thiele (EMV: {int(eff*100)}%)", fontsize=10)
 ax.legend(fontsize=8, loc='upper left')
 ax.grid(True, alpha=0.2)
 
-# Tight layout removes the margin "padding" around the graph
 plt.tight_layout()
 
 # --- DISPLAY LAYOUT ---
@@ -121,10 +119,7 @@ plt.tight_layout()
 left_pad, center_col, right_pad = st.columns([1, 2, 1])
 
 with center_col:
-    # use_container_width=False ensures the plot respects the figsize(4.5, 4.5)
     st.pyplot(fig, use_container_width=False)
-    
-    # Display metrics side-by-side immediately under the chart
     m1, m2 = st.columns(2)
     m1.metric("Actual Stages", actual_stages)
     m2.metric("Efficiency", f"{int(eff*100)}%")
