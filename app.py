@@ -2,25 +2,31 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 1. Tighten the entire page layout
+# 1. Page configuration
 st.set_page_config(page_title="McCabe-Thiele Solver", layout="wide")
 
+# 2. UI Tightening: Hide header/footer and reduce padding
 st.markdown("""
     <style>
-    /* Remove top padding and hide header/footer */
-    .block-container { padding-top: 0rem; padding-bottom: 0rem; }
+    /* Hide the Streamlit header and footer */
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Shrink the sidebar spacing even more */
-    [data-testid="stSidebar"] .stElementContainer { margin-bottom: -20px; }
+    /* Reduce top padding to pull content up */
+    .block-container {
+        padding-top: 0.5rem;
+        padding-bottom: 0rem;
+    }
+
+    /* Shrink the sidebar spacing for a cleaner look */
+    [data-testid="stSidebar"] .stElementContainer { margin-bottom: -18px; }
     
-    /* Force the plot to not exceed a certain height */
-    img { max-height: 75vh; object-fit: contain; }
+    /* Adjust metric font size to save vertical space */
+    [data-testid="stMetricValue"] { font-size: 1.8rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# Use a smaller header instead of a massive title
+# Smaller header to save space
 st.subheader("McCabe-Thiele Diagram Generator")
 
 # --- SESSION STATE SYNC ---
@@ -56,76 +62,7 @@ create_dual_input("Tray Efficiency (EMV)", "eff", 0.1, 1.0, 0.05)
 
 alpha, xF, xD, xB, R, q, eff = [st.session_state[k] for k in defaults.keys()]
 
+# Validation
 if xB >= xF or xF >= xD:
     st.error("⚠️ Invalid range: Ensure $x_B < z_F < x_D$.")
-    st.stop()
-
-# --- CALCULATIONS ---
-if q == 1.0:
-    x_int, y_int = xF, (R / (R + 1)) * xF + xD / (R + 1)
-else:
-    m_R, b_R = R / (R + 1), xD / (R + 1)
-    m_q, b_q = q / (q - 1), -xF / (q - 1)
-    x_int = (b_q - b_R) / (m_R - m_q)
-    y_int = m_R * x_int + b_R
-
-# --- PLOTTING ---
-# 1. Set a smaller square size (4x4 inches is usually perfect for most screens)
-fig, ax = plt.subplots(figsize=(4, 4)) 
-
-# ... (keep your existing plotting logic: equilibrium, ROL, SOL, steps, etc.) ...
-
-ax.set_title(f"McCabe-Thiele (Efficiency: {eff*100}%)", fontsize=9)
-ax.legend(fontsize=7, loc='upper left')
-ax.grid(True, alpha=0.2)
-
-# Use tight_layout to ensure labels aren't cut off in a smaller figure
-plt.tight_layout()
-
-# --- RESPONSIVE LAYOUT ---
-# 2. Use columns to center the smaller square plot
-col1, col2, col3 = st.columns([1, 2, 1])
-
-with col2:
-    # 3. Set use_container_width=False so it stays exactly 4x4 inches
-    st.pyplot(fig, use_container_width=False)
-    
-    # Place metrics immediately under the plot so they stay in view
-    m1, m2 = st.columns(2)
-    m1.metric("Actual Stages", actual_stages)
-    m2.metric("Efficiency", f"{eff*100}%")
-
-# Stepping logic
-x_curr, y_curr, actual_stages = xD, xD, 0
-while x_curr > xB and actual_stages < 100:
-    actual_stages += 1
-    x_ideal = y_curr / (alpha - y_curr * (alpha - 1))
-    x_step = x_curr - eff * (x_curr - x_ideal)
-    ax.plot([x_curr, x_step], [y_curr, y_curr], 'r-', linewidth=1)
-    x_curr = x_step
-    if x_curr < xB:
-        ax.plot([x_curr, x_curr], [y_curr, x_curr], 'r-', linewidth=1)
-        break
-    if x_curr > x_int:
-        y_next = (R / (R + 1)) * x_curr + xD / (R + 1)
-    else:
-        m_S = (y_int - xB) / (x_int - xB)
-        y_next = m_S * (x_curr - xB) + xB
-    ax.plot([x_curr, x_curr], [y_curr, y_next], 'r-', linewidth=1)
-    y_curr = y_next
-
-ax.set_title(f"McCabe-Thiele (Efficiency: {eff*100}%)", fontsize=10)
-ax.legend(fontsize=8, loc='upper left')
-ax.grid(True, alpha=0.2)
-plt.tight_layout() # Ensures no wasted whitespace inside the figure
-
-# --- RESPONSIVE LAYOUT ---
-main_col, metric_col = st.columns([4, 1])
-
-with main_col:
-    st.pyplot(fig, use_container_width=True)
-
-with metric_col:
-    st.write("### Analysis")
-    st.metric("Actual Stages", actual_stages)
-    st.metric("Efficiency", f"{eff*100}%")
+    st.
