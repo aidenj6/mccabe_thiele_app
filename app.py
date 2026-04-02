@@ -65,4 +65,66 @@ alpha, xF, xD, xB, R, q, eff = [st.session_state[k] for k in defaults.keys()]
 # Validation
 if xB >= xF or xF >= xD:
     st.error("⚠️ Invalid range: Ensure $x_B < z_F < x_D$.")
-    st.
+    st.stop()
+
+# --- CALCULATIONS ---
+if q == 1.0:
+    x_int, y_int = xF, (R / (R + 1)) * xF + xD / (R + 1)
+else:
+    m_R, b_R = R / (R + 1), xD / (R + 1)
+    m_q, b_q = q / (q - 1), -xF / (q - 1)
+    x_int = (b_q - b_R) / (m_R - m_q)
+    y_int = m_R * x_int + b_R
+
+# --- PLOTTING ---
+# We use a 4.5 x 4.5 inch square. This fits well on most laptop screens.
+fig, ax = plt.subplots(figsize=(4.5, 4.5)) 
+x_eq_line = np.linspace(0, 1, 100)
+y_eq_line = (alpha * x_eq_line) / (1 + (alpha - 1) * x_eq_line)
+
+ax.plot(x_eq_line, y_eq_line, 'b-', label="Equilibrium", alpha=0.6)
+ax.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+ax.plot([x_int, xD], [y_int, xD], 'g-', label="ROL")
+ax.plot([xB, x_int], [xB, y_int], 'm-', label="SOL")
+ax.plot([xF, x_int], [xF, y_int], 'y--', label="q-line")
+
+# Stepping logic
+x_curr, y_curr, actual_stages = xD, xD, 0
+while x_curr > xB and actual_stages < 100:
+    actual_stages += 1
+    x_ideal = y_curr / (alpha - y_curr * (alpha - 1))
+    x_step = x_curr - eff * (x_curr - x_ideal)
+    ax.plot([x_curr, x_step], [y_curr, y_curr], 'r-', linewidth=1)
+    x_curr = x_step
+    
+    if x_curr < xB:
+        ax.plot([x_curr, x_curr], [y_curr, x_curr], 'r-', linewidth=1)
+        break
+        
+    if x_curr > x_int:
+        y_next = (R / (R + 1)) * x_curr + xD / (R + 1)
+    else:
+        m_S = (y_int - xB) / (x_int - xB)
+        y_next = m_S * (x_curr - xB) + xB
+    ax.plot([x_curr, x_curr], [y_curr, y_next], 'r-', linewidth=1)
+    y_curr = y_next
+
+ax.set_title(f"McCabe-Thiele (EMV: {int(eff*100)}%)", fontsize=10)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(True, alpha=0.2)
+
+# Tight layout removes the margin "padding" around the graph
+plt.tight_layout()
+
+# --- DISPLAY LAYOUT ---
+# Create three columns to center the square plot in the middle
+left_pad, center_col, right_pad = st.columns([1, 2, 1])
+
+with center_col:
+    # use_container_width=False ensures the plot respects the figsize(4.5, 4.5)
+    st.pyplot(fig, use_container_width=False)
+    
+    # Display metrics side-by-side immediately under the chart
+    m1, m2 = st.columns(2)
+    m1.metric("Actual Stages", actual_stages)
+    m2.metric("Efficiency", f"{int(eff*100)}%")
