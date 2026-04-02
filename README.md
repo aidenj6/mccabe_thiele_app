@@ -1,0 +1,1 @@
+This is a simple Streamlit app that runs locally in your browser. Use it to visualize a McCabe-Thiele diagram with adjustable variables such as feed composition, product purities, feed quality, and reflux ratio. This is meant to help chemical engineers and students in doing initial estimates of how many equilibrium stages needed for a binary distillation.
