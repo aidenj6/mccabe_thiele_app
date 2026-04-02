@@ -2,24 +2,26 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 1. Set wide layout and reduce top padding via CSS
+# 1. Tighten the entire page layout
 st.set_page_config(page_title="McCabe-Thiele Solver", layout="wide")
 
 st.markdown("""
     <style>
-    /* Reduce padding at the top of the page */
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 0rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-    /* Tighten sidebar spacing */
-    [data-testid="stSidebar"] .stElementContainer { margin-bottom: -15px; }
+    /* Remove top padding and hide header/footer */
+    .block-container { padding-top: 0rem; padding-bottom: 0rem; }
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Shrink the sidebar spacing even more */
+    [data-testid="stSidebar"] .stElementContainer { margin-bottom: -20px; }
+    
+    /* Force the plot to not exceed a certain height */
+    img { max-height: 75vh; object-fit: contain; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("McCabe-Thiele Diagram Generator")
+# Use a smaller header instead of a massive title
+st.subheader("McCabe-Thiele Diagram Generator")
 
 # --- SESSION STATE SYNC ---
 def sync_input(key_to_update, key_from_update):
@@ -68,8 +70,8 @@ else:
     y_int = m_R * x_int + b_R
 
 # --- PLOTTING ---
-# Slightly adjusted figsize for a wider aspect ratio that fits screens better
-fig, ax = plt.subplots(figsize=(6, 5)) 
+# CHANGE: Set figsize to be shorter (4 instead of 5)
+fig, ax = plt.subplots(figsize=(7, 4)) 
 x_eq_line = np.linspace(0, 1, 100)
 y_eq_line = (alpha * x_eq_line) / (1 + (alpha - 1) * x_eq_line)
 
@@ -87,11 +89,9 @@ while x_curr > xB and actual_stages < 100:
     x_step = x_curr - eff * (x_curr - x_ideal)
     ax.plot([x_curr, x_step], [y_curr, y_curr], 'r-', linewidth=1)
     x_curr = x_step
-    
     if x_curr < xB:
         ax.plot([x_curr, x_curr], [y_curr, x_curr], 'r-', linewidth=1)
         break
-        
     if x_curr > x_int:
         y_next = (R / (R + 1)) * x_curr + xD / (R + 1)
     else:
@@ -101,19 +101,17 @@ while x_curr > xB and actual_stages < 100:
     y_curr = y_next
 
 ax.set_title(f"McCabe-Thiele (Efficiency: {eff*100}%)", fontsize=10)
-ax.legend(fontsize=8)
+ax.legend(fontsize=8, loc='upper left')
 ax.grid(True, alpha=0.2)
+plt.tight_layout() # Ensures no wasted whitespace inside the figure
 
 # --- RESPONSIVE LAYOUT ---
-# We move the metrics to the right of the plot to save vertical space
-main_col, metric_col = st.columns([3, 1])
+main_col, metric_col = st.columns([4, 1])
 
 with main_col:
-    # use_container_width ensures it fills the column without forcing vertical scroll
     st.pyplot(fig, use_container_width=True)
 
 with metric_col:
     st.write("### Analysis")
     st.metric("Actual Stages", actual_stages)
     st.metric("Efficiency", f"{eff*100}%")
-    st.info("Adjust parameters in the sidebar to update the calculation in real-time.")
