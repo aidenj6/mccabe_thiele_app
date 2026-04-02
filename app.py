@@ -70,16 +70,30 @@ else:
     y_int = m_R * x_int + b_R
 
 # --- PLOTTING ---
-# CHANGE: Set figsize to be shorter (4 instead of 5)
-fig, ax = plt.subplots(figsize=(7, 4)) 
-x_eq_line = np.linspace(0, 1, 100)
-y_eq_line = (alpha * x_eq_line) / (1 + (alpha - 1) * x_eq_line)
+# 1. Set a smaller square size (4x4 inches is usually perfect for most screens)
+fig, ax = plt.subplots(figsize=(4, 4)) 
 
-ax.plot(x_eq_line, y_eq_line, 'b-', label="Equilibrium", alpha=0.6)
-ax.plot([0, 1], [0, 1], 'k--', alpha=0.3)
-ax.plot([x_int, xD], [y_int, xD], 'g-', label="ROL")
-ax.plot([xB, x_int], [xB, y_int], 'm-', label="SOL")
-ax.plot([xF, x_int], [xF, y_int], 'y--', label="q-line")
+# ... (keep your existing plotting logic: equilibrium, ROL, SOL, steps, etc.) ...
+
+ax.set_title(f"McCabe-Thiele (Efficiency: {eff*100}%)", fontsize=9)
+ax.legend(fontsize=7, loc='upper left')
+ax.grid(True, alpha=0.2)
+
+# Use tight_layout to ensure labels aren't cut off in a smaller figure
+plt.tight_layout()
+
+# --- RESPONSIVE LAYOUT ---
+# 2. Use columns to center the smaller square plot
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    # 3. Set use_container_width=False so it stays exactly 4x4 inches
+    st.pyplot(fig, use_container_width=False)
+    
+    # Place metrics immediately under the plot so they stay in view
+    m1, m2 = st.columns(2)
+    m1.metric("Actual Stages", actual_stages)
+    m2.metric("Efficiency", f"{eff*100}%")
 
 # Stepping logic
 x_curr, y_curr, actual_stages = xD, xD, 0
