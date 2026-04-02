@@ -2,11 +2,19 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 
+# 1. Set wide layout and reduce top padding via CSS
 st.set_page_config(page_title="McCabe-Thiele Solver", layout="wide")
 
-# --- CUSTOM CSS ---
 st.markdown("""
     <style>
+    /* Reduce padding at the top of the page */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    /* Tighten sidebar spacing */
     [data-testid="stSidebar"] .stElementContainer { margin-bottom: -15px; }
     </style>
     """, unsafe_allow_html=True)
@@ -60,7 +68,8 @@ else:
     y_int = m_R * x_int + b_R
 
 # --- PLOTTING ---
-fig, ax = plt.subplots(figsize=(5, 5))
+# Slightly adjusted figsize for a wider aspect ratio that fits screens better
+fig, ax = plt.subplots(figsize=(6, 5)) 
 x_eq_line = np.linspace(0, 1, 100)
 y_eq_line = (alpha * x_eq_line) / (1 + (alpha - 1) * x_eq_line)
 
@@ -70,20 +79,12 @@ ax.plot([x_int, xD], [y_int, xD], 'g-', label="ROL")
 ax.plot([xB, x_int], [xB, y_int], 'm-', label="SOL")
 ax.plot([xF, x_int], [xF, y_int], 'y--', label="q-line")
 
-# Stepping logic with Efficiency
+# Stepping logic
 x_curr, y_curr, actual_stages = xD, xD, 0
 while x_curr > xB and actual_stages < 100:
     actual_stages += 1
-    
-    # 1. Find the theoretical y on the equilibrium curve for current x
-    # y_ideal = (alpha * x) / (1 + (alpha - 1) * x) ... but we are stepping from y to x
-    # So first, find the x that WOULD be in equilibrium with current y
     x_ideal = y_curr / (alpha - y_curr * (alpha - 1))
-    
-    # Apply Murphree Efficiency: x_actual = x_prev - eff * (x_prev - x_ideal)
-    # Note: For stepping down, efficiency is applied to the horizontal change
     x_step = x_curr - eff * (x_curr - x_ideal)
-    
     ax.plot([x_curr, x_step], [y_curr, y_curr], 'r-', linewidth=1)
     x_curr = x_step
     
@@ -91,13 +92,11 @@ while x_curr > xB and actual_stages < 100:
         ax.plot([x_curr, x_curr], [y_curr, x_curr], 'r-', linewidth=1)
         break
         
-    # 2. Vertical step to operating line
     if x_curr > x_int:
         y_next = (R / (R + 1)) * x_curr + xD / (R + 1)
     else:
         m_S = (y_int - xB) / (x_int - xB)
         y_next = m_S * (x_curr - xB) + xB
-        
     ax.plot([x_curr, x_curr], [y_curr, y_next], 'r-', linewidth=1)
     y_curr = y_next
 
@@ -105,9 +104,16 @@ ax.set_title(f"McCabe-Thiele (Efficiency: {eff*100}%)", fontsize=10)
 ax.legend(fontsize=8)
 ax.grid(True, alpha=0.2)
 
-left_spacer, center_content, right_spacer = st.columns([1, 3, 1])
-with center_content:
-    st.pyplot(fig)
-    col_m1, col_m2 = st.columns(2)
-    col_m1.metric("Actual Stages", actual_stages)
-    col_m2.metric("Efficiency Applied", f"{eff*100}%")
+# --- RESPONSIVE LAYOUT ---
+# We move the metrics to the right of the plot to save vertical space
+main_col, metric_col = st.columns([3, 1])
+
+with main_col:
+    # use_container_width ensures it fills the column without forcing vertical scroll
+    st.pyplot(fig, use_container_width=True)
+
+with metric_col:
+    st.write("### Analysis")
+    st.metric("Actual Stages", actual_stages)
+    st.metric("Efficiency", f"{eff*100}%")
+    st.info("Adjust parameters in the sidebar to update the calculation in real-time.")
