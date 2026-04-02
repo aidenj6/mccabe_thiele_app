@@ -45,4 +45,92 @@ def create_side_input(label, key, min_v, max_v, step):
     col1, col2 = st.sidebar.columns([2, 1])
     col1.markdown(f"**{label}**")
     col2.number_input(label, min_v, max_v, step=step, key=f"{key}_num", on_change=sync_input, args=(key, f"{key}_num"), label_visibility="collapsed")
-    st.sidebar.slider(label, min_v, max_v, step=step, key=key, on_change=sync_
+    st.sidebar.slider(label, min_v, max_v, step=step, key=key, on_change=sync_input, args=(f"{key}_num", key), label_visibility="collapsed")
+
+create_side_input("Feed (zF)", "xF", 0.01, 0.99, 0.01)
+create_side_input("Distillate (xD)", "xD", 0.01, 0.99, 0.01)
+create_side_input("Bottoms (xB)", "xB", 0.01, 0.99, 0.01)
+create_side_input("Reflux (R)", "R", 0.1, 10.0, 0.1)
+create_side_input("Condition (q)", "q", -0.5, 1.5, 0.1)
+
+# Retrieve current values
+alpha, xF, xD, xB, R, q, eff = st.session_state.alpha, st.session_state.xF, st.session_state.xD, st.session_state.xB, st.session_state.R, st.session_state.q, st.session_state.eff_val
+
+# --- CALCULATION LOGIC ---
+if xB >= xF or xF >= xD:
+    st.error("⚠️ Ensure $x_B < z_F < x_D$.")
+    st.stop()
+
+x_eq_plot = np.linspace(0, 1, 100)
+if vle_mode == "Relative Volatility (α)":
+    y_eq_plot = (alpha * x_eq_plot) / (1 + (alpha - 1) * x_eq_plot)
+    def get_y_eq(x): return (alpha * x) / (1 + (alpha - 1) * x)
+    def get_x_eq(y): return y / (alpha - y * (alpha - 1))
+else:
+    try:
+        raw = [list(map(float, l.split(','))) for l in vle_text.strip().split('\n')]
+        vle_arr = np.array(raw)
+        x_eq_plot, y_eq_plot = vle_arr[:,0], vle_arr[:,1]
+        def get_y_eq(x): return np.interp(x, x_eq_plot, y_eq_plot)
+        def get_x_eq(y): return np.interp(y, y_eq_plot, x_eq_plot)
+    except:
+        st.error("Invalid Custom VLE data format.")
+        st.stop()
+
+# Operating Lines Intersection
+if q == 1.0: 
+    x_int, y_int = xF, (R/(R+1))*xF + xD/(R+1)
+else:
+    m_R, b_R = R/(R+1), xD/(R+1)
+    m_q, b_q = q/(q-1), -xF/(q-1)
+    x_int = (b_q - b_R) / (m_R - m_q)
+    y_int = m_R * x_int + b_R
+
+# --- PLOTTING ---
+fig, ax = plt.subplots(figsize=(5, 5))
+ax.plot(x_eq_plot, y_eq_plot, 'b-', label="VLE Curve", linewidth=2)
+ax.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+ax.plot([x_int, xD], [y_int, xD], 'g-', label="ROL")
+ax.plot([xB, x_int], [xB, y_int], 'm-', label="SOL")
+ax.plot([xF, x_int], [xF, y_int], 'y--', label="q-line")
+
+# Stepping off Stages
+x_c, y_c, stages = xD, xD, 0
+while x_c > xB and stages < 100:
+    stages += 1
+    x_ideal = get_x_eq(y_c)
+    
+    # Efficiency Application
+    if eff_type == "Vapor (EMV)":
+        x_step = x_c - eff * (x_c - x_ideal)
+    else: # Liquid (EML)
+        x_step = x_ideal + (1 - eff) * (x_c - x_ideal)
+
+    ax.plot([x_c, x_step], [y_c, y_c], 'r-', linewidth=1)
+    x_c = x_step
+    if x_c < xB:
+        ax.plot([x_c, x_c], [y_c, x_c], 'r-', linewidth=1)
+        break
+    
+    y_next = ((R/(R+1))*x_c + xD/(R+1)) if x_c > x_int else (((y_int-xB)/(x_int-xB))*(x_c-xB) + xB)
+    ax.plot([x_c, x_c], [y_c, y_next], 'r-', linewidth=1)
+    y_c = y_next
+
+ax.set_xlabel("x (Liquid Fraction)")
+ax.set_ylabel("y (Vapor Fraction)")
+ax.legend(fontsize=8)
+ax.grid(True, alpha=0.2)
+
+# Main Dashboard Layout
+l_col, r_col = st.columns([2, 1])
+with l_col:
+    st.pyplot(fig)
+
+with r_col:
+    st.markdown("### Results")
+    st.metric(f"Total {eff_type} Stages", stages)
+    st.write(f"This calculation uses the **{eff_type}** definition to determine the actual number of trays required for the specified separation.")
+    if vle_mode == "Custom X,Y Data":
+        st.info("Using interpolated custom VLE data points.")
+    else:
+        st.info(f"Using Relative Volatility (α = {alpha}) model.")
